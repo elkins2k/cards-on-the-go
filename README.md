@@ -56,4 +56,4 @@ Find local in-person games near you
 
 
 
-Copywrite 2024 McDowelkins
+Copyright 2024 McDowElkins
