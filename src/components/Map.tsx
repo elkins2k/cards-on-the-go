@@ -27,6 +27,27 @@ export default function Map({ userId }: { userId?: string }) {
       setIsLoading(true);
       setError(null);
 
+      // Try browser geolocation first
+      if (navigator.geolocation) {
+        try {
+          const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
+              enableHighAccuracy: true,
+              timeout: 5000,
+              maximumAge: 0
+            });
+          });
+          
+          setUserLocation([position.coords.latitude, position.coords.longitude]);
+          setIsLoading(false);
+          return;
+        } catch (error) {
+          console.error('Error getting browser location:', error);
+          // Fall back to user preferences if geolocation fails
+        }
+      }
+
+      // Fall back to user preferences if available
       if (userId) {
         try {
           const response = await fetch(`/api/user/preferences?userId=${userId}&includeCoords=true`);
@@ -38,28 +59,17 @@ export default function Map({ userId }: { userId?: string }) {
           
           if (data.coordinates) {
             setUserLocation([data.coordinates.latitude, data.coordinates.longitude]);
+            setError('Using your saved location. Allow location access to see your current position.');
+            setIsLoading(false);
             return;
           }
         } catch (error) {
           console.error('Error fetching user preferences:', error);
-          setError('Failed to load saved location. Using browser location.');
-          // Continue to try browser geolocation as fallback
         }
       }
 
-      // Fall back to browser geolocation if no zip code or error
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            setUserLocation([position.coords.latitude, position.coords.longitude]);
-            setError(null);
-          },
-          (error) => {
-            console.error('Error getting location:', error);
-            setError('Could not determine your location. Using default location.');
-          }
-        );
-      }
+      // If all else fails, use default NYC location
+      setError('Could not determine your location. Using default location.');
       setIsLoading(false);
     }
 
