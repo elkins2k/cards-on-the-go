@@ -1,11 +1,7 @@
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
+/** @type {import('next').NextConfig} */
+const nextConfig = {
   experimental: {
-    serverActions: {
-      bodySizeLimit: "1mb", // Example value
-      allowedOrigins: ["*"], // Example value
-    },
+    serverActions: true,
   },
   transpilePackages: ['react-leaflet', '@react-leaflet/core'],
   webpack: (config, { isServer }) => {
