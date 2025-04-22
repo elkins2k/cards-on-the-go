@@ -1,0 +1,59 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String     @id @default(cuid())
+  email          String     @unique
+  name           String?
+  defaultZipCode String?
+  businesses     Business[] @relation("BusinessOwner")
+  events         Event[]    @relation("EventCreator")
+  eventJoined    Event[]    @relation("EventParticipants")
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+}
+
+model Business {
+  id          String   @id @default(cuid())
+  name        String
+  description String
+  address     String
+  latitude    Float
+  longitude   Float
+  owner       User     @relation("BusinessOwner", fields: [ownerId], references: [id])
+  ownerId     String
+  events      Event[]
+  features    String[] // e.g., ["large tables", "private room", "wifi"]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Event {
+  id           String   @id @default(cuid())
+  title        String
+  description  String
+  date         DateTime
+  business     Business @relation(fields: [businessId], references: [id])
+  businessId   String
+  creator      User     @relation("EventCreator", fields: [creatorId], references: [id])
+  creatorId    String
+  participants User[]   @relation("EventParticipants")
+  maxPlayers   Int?
+  gameType     String
+  status       String   @default("planned") // planned, active, completed, cancelled
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
