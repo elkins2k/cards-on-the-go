@@ -5,21 +5,21 @@ import 'leaflet/dist/leaflet.css';
 import { useEffect, useState } from 'react';
 import L from 'leaflet';
 
-// Fix Leaflet default marker icons
-useEffect(() => {
-  delete (L.Icon.Default.prototype as any)._getIconUrl;
-  L.Icon.Default.mergeOptions({
-    iconUrl: 'marker-icon.png',
-    iconRetinaUrl: 'marker-icon-2x.png',
-    shadowUrl: 'marker-shadow.png',
-  });
-}, []);
-
 export default function Map({ userId }: { userId?: string }) {
   const DEFAULT_ZIP = '61273';
   const [userLocation, setUserLocation] = useState<[number, number]>([40.7128, -74.0060]); // Temporary default until we get coordinates
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Fix Leaflet default marker icons
+  useEffect(() => {
+    delete (L.Icon.Default.prototype as any)._getIconUrl;
+    L.Icon.Default.mergeOptions({
+      iconUrl: 'marker-icon.png',
+      iconRetinaUrl: 'marker-icon-2x.png',
+      shadowUrl: 'marker-shadow.png',
+    });
+  }, []);
 
   useEffect(() => {
     async function getDefaultLocation() {
