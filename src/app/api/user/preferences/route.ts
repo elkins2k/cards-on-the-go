@@ -1,16 +1,47 @@
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
-import NodeGeocoder from 'node-geocoder';
 
 const prisma = new PrismaClient();
-const geocoder = NodeGeocoder({
-  provider: 'openstreetmap'
-});
+
+async function getCoordinatesFromZipCode(zipCode: string) {
+  try {
+    // Add delay to respect rate limits
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&q=${zipCode}&countrycodes=us`,
+      {
+        headers: {
+          'User-Agent': 'CardsOnTheGo/1.0',
+          'Accept-Language': 'en-US'
+        }
+      }
+    );
+    
+    if (!response.ok) {
+      throw new Error(`Geocoding failed with status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    if (data && data[0]) {
+      return {
+        latitude: parseFloat(data[0].lat),
+        longitude: parseFloat(data[0].lon)
+      };
+    }
+    return null;
+  } catch (error) {
+    console.error('Error geocoding zip code:', error);
+    return null;
+  }
+}
 
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
+    const includeCoords = searchParams.get('includeCoords') === 'true';
 
     if (!userId) {
       return NextResponse.json({ error: 'Missing userId parameter' }, { status: 400 });
@@ -26,6 +57,13 @@ export async function GET(request: Request) {
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    if (includeCoords && user.defaultZipCode) {
+      const coordinates = await getCoordinatesFromZipCode(user.defaultZipCode);
+      if (coordinates) {
+        return NextResponse.json({ user, coordinates });
+      }
     }
 
     return NextResponse.json({ user });
@@ -48,9 +86,9 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'Invalid zip code format' }, { status: 400 });
     }
 
-    // Get coordinates for the zip code
-    const locations = await geocoder.geocode(zipCode);
-    if (!locations || locations.length === 0) {
+    // Verify zip code exists by attempting to geocode it
+    const coordinates = await getCoordinatesFromZipCode(zipCode);
+    if (!coordinates) {
       return NextResponse.json({ error: 'Invalid zip code' }, { status: 400 });
     }
 
@@ -65,7 +103,8 @@ export async function PUT(request: Request) {
       user: {
         id: user.id,
         defaultZipCode: user.defaultZipCode
-      }
+      },
+      coordinates
     });
   } catch (error) {
     console.error('Error updating user preferences:', error);

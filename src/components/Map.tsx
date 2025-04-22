@@ -4,12 +4,6 @@ import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useEffect, useState } from 'react';
 import L from 'leaflet';
-import NodeGeocoder from 'node-geocoder';
-import { LatLngExpression } from 'leaflet';
-
-const geocoder = NodeGeocoder({
-  provider: 'openstreetmap'
-});
 
 // Fix Leaflet default marker icons
 const defaultIcon = L.icon({
@@ -24,24 +18,19 @@ const defaultIcon = L.icon({
 L.Marker.prototype.options.icon = defaultIcon;
 
 export default function Map({ userId }: { userId?: string }) {
-  const [userLocation, setUserLocation] = useState<LatLngExpression>([40.7128, -74.0060]); // Default to NYC
+  const [userLocation, setUserLocation] = useState<[number, number]>([40.7128, -74.0060]); // Default to NYC
 
   useEffect(() => {
     async function initializeLocation() {
       if (userId) {
         try {
-          const response = await fetch(`/api/user/preferences?userId=${userId}`);
+          // Get user's location from their default zip code
+          const response = await fetch(`/api/user/preferences?userId=${userId}&includeCoords=true`);
           const data = await response.json();
           
-          if (data.user?.defaultZipCode) {
-            const locations = await geocoder.geocode(data.user.defaultZipCode);
-            if (locations?.[0]?.latitude != null && locations[0]?.longitude != null) {
-              setUserLocation([
-                locations[0].latitude as number,
-                locations[0].longitude as number
-              ]);
-              return;
-            }
+          if (data.coordinates) {
+            setUserLocation([data.coordinates.latitude, data.coordinates.longitude]);
+            return;
           }
         } catch (error) {
           console.error('Error fetching user preferences:', error);
@@ -66,16 +55,16 @@ export default function Map({ userId }: { userId?: string }) {
 
   return (
     <MapContainer
-      center={userLocation as LatLngExpression}
+      center={userLocation}
       zoom={13}
       style={{ height: '100%', width: '100%' }}
       scrollWheelZoom={true}
     >
       <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
       />
-      <Marker position={userLocation as LatLngExpression}>
+      <Marker position={userLocation}>
         <Popup>You are here</Popup>
       </Marker>
     </MapContainer>
