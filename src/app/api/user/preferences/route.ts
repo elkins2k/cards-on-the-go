@@ -178,10 +178,15 @@ export async function PUT(request: Request) {
       );
     }
 
-    // Update user preferences
-    const user = await prisma.user.update({
+    // Use upsert to create or update user with a temporary email if creating
+    const user = await prisma.user.upsert({
       where: { id: userId },
-      data: { defaultZipCode: zipCode }
+      update: { defaultZipCode: zipCode },
+      create: {
+        id: userId,
+        email: `${userId}@temporary.com`, // Temporary email until auth is implemented
+        defaultZipCode: zipCode
+      }
     });
 
     return NextResponse.json(
@@ -199,7 +204,19 @@ export async function PUT(request: Request) {
       }
     );
   } catch (error) {
-    console.error('Error updating user preferences:', error);
+    if (error instanceof Error) {
+      console.error('Error updating user preferences:', error.message);
+      // Check if it's a Prisma error with a known error code
+      if (error.message.includes('Unique constraint')) {
+        return NextResponse.json(
+          { error: 'User already exists with different ID' },
+          {
+            status: 409,
+            headers: getCorsHeaders(),
+          }
+        );
+      }
+    }
     return NextResponse.json(
       { error: 'Internal server error' },
       {
