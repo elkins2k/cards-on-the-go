@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
+import { headers } from 'next/headers';
 
 const prisma = new PrismaClient();
 
@@ -52,12 +53,26 @@ async function getCoordinatesFromZipCode(zipCode: string) {
 
 export async function GET(request: Request) {
   try {
+    const headersList = headers();
+    const origin = headersList.get('origin') || '*';
+
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
     const includeCoords = searchParams.get('includeCoords') === 'true';
 
     if (!userId) {
-      return NextResponse.json({ error: 'Missing userId parameter' }, { status: 400 });
+      return new NextResponse(
+        JSON.stringify({ error: 'Missing userId parameter' }),
+        {
+          status: 400,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': origin,
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+          },
+        }
+      );
     }
 
     const user = await prisma.user.findUnique({
@@ -69,40 +84,116 @@ export async function GET(request: Request) {
     });
 
     if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      return new NextResponse(
+        JSON.stringify({ error: 'User not found' }),
+        {
+          status: 404,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': origin,
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+          },
+        }
+      );
     }
 
+    let responseData = { user };
+
     if (includeCoords && user.defaultZipCode) {
-      const coordinates = await getCoordinatesFromZipCode(user.defaultZipCode);
-      if (coordinates) {
-        return NextResponse.json({ user, coordinates });
+      try {
+        const coordinates = await getCoordinatesFromZipCode(user.defaultZipCode);
+        if (coordinates) {
+          responseData = { ...responseData, coordinates };
+        }
+      } catch (error) {
+        console.error('Error getting coordinates:', error);
+        // Continue without coordinates
       }
     }
 
-    return NextResponse.json({ user });
+    return new NextResponse(
+      JSON.stringify(responseData),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': origin,
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        },
+      }
+    );
   } catch (error) {
     console.error('Error fetching user preferences:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return new NextResponse(
+      JSON.stringify({ error: 'Internal server error' }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': origin,
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        },
+      }
+    );
   }
 }
 
 export async function PUT(request: Request) {
   try {
+    const headersList = headers();
+    const origin = headersList.get('origin') || '*';
+
     const { userId, zipCode } = await request.json();
     
     if (!userId || !zipCode) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+      return new NextResponse(
+        JSON.stringify({ error: 'Missing required fields' }),
+        {
+          status: 400,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': origin,
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+          },
+        }
+      );
     }
 
     // Validate zip code format
     if (!/^\d{5}(-\d{4})?$/.test(zipCode)) {
-      return NextResponse.json({ error: 'Invalid zip code format' }, { status: 400 });
+      return new NextResponse(
+        JSON.stringify({ error: 'Invalid zip code format' }),
+        {
+          status: 400,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': origin,
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+          },
+        }
+      );
     }
 
     // Verify zip code exists by attempting to geocode it
     const coordinates = await getCoordinatesFromZipCode(zipCode);
     if (!coordinates) {
-      return NextResponse.json({ error: 'Invalid zip code' }, { status: 400 });
+      return new NextResponse(
+        JSON.stringify({ error: 'Invalid zip code' }),
+        {
+          status: 400,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': origin,
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+          },
+        }
+      );
     }
 
     // Update user preferences
@@ -111,16 +202,53 @@ export async function PUT(request: Request) {
       data: { defaultZipCode: zipCode }
     });
 
-    return NextResponse.json({
-      success: true,
-      user: {
-        id: user.id,
-        defaultZipCode: user.defaultZipCode
-      },
-      coordinates
-    });
+    return new NextResponse(
+      JSON.stringify({
+        success: true,
+        user: {
+          id: user.id,
+          defaultZipCode: user.defaultZipCode
+        },
+        coordinates
+      }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': origin,
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        },
+      }
+    );
   } catch (error) {
     console.error('Error updating user preferences:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return new NextResponse(
+      JSON.stringify({ error: 'Internal server error' }),
+      {
+        status: 500,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': origin,
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        },
+      }
+    );
   }
+}
+
+// Handle OPTIONS requests for CORS
+export async function OPTIONS(request: Request) {
+  const headersList = headers();
+  const origin = headersList.get('origin') || '*';
+
+  return new NextResponse(null, {
+    status: 204,
+    headers: {
+      'Access-Control-Allow-Origin': origin,
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    },
+  });
 }
