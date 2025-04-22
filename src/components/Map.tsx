@@ -18,96 +18,88 @@ const defaultIcon = L.icon({
 L.Marker.prototype.options.icon = defaultIcon;
 
 export default function Map({ userId }: { userId?: string }) {
-  const [userLocation, setUserLocation] = useState<[number, number]>([40.7128, -74.0060]); // Default to NYC
+  const DEFAULT_ZIP = '61273';
+  const [userLocation, setUserLocation] = useState<[number, number]>([40.7128, -74.0060]); // Temporary default until we get coordinates
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    async function tryGeolocation(options: PositionOptions): Promise<GeolocationPosition> {
-      return new Promise((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, options);
-      });
+    async function getDefaultLocation() {
+      try {
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${DEFAULT_ZIP}&countrycodes=us`,
+          {
+            headers: {
+              'User-Agent': 'CardsOnTheGo/1.0',
+              'Accept-Language': 'en-US'
+            }
+          }
+        );
+        const data = await response.json();
+        if (data?.[0]) {
+          return [parseFloat(data[0].lat), parseFloat(data[0].lon)] as [number, number];
+        }
+        throw new Error('Could not get coordinates for default zip code');
+      } catch (error) {
+        console.error('Error getting default location:', error);
+        return [40.7128, -74.0060] as [number, number]; // Fallback if geocoding fails
+      }
     }
 
     async function initializeLocation() {
       setIsLoading(true);
       setError(null);
 
-      // Try browser geolocation with different accuracy levels
+      // Try browser geolocation first
       if (navigator.geolocation) {
         try {
-          // First try with high accuracy
-          try {
-            const position = await tryGeolocation({
+          const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject, {
               enableHighAccuracy: true,
               timeout: 10000,
               maximumAge: 0
             });
-            setUserLocation([position.coords.latitude, position.coords.longitude]);
-            setIsLoading(false);
-            return;
-          } catch (error) {
-            console.log('High accuracy location failed, trying low accuracy...');
-            
-            // If high accuracy fails, try with low accuracy
-            const position = await tryGeolocation({
-              enableHighAccuracy: false,
-              timeout: 15000,
-              maximumAge: 30000
-            });
-            setUserLocation([position.coords.latitude, position.coords.longitude]);
-            setError('Using approximate location. For better accuracy, try again in a place with better GPS signal.');
+          });
+          
+          setUserLocation([position.coords.latitude, position.coords.longitude]);
+          setIsLoading(false);
+          return;
+        } catch (error) {
+          console.error('Error getting browser location:', error);
+        }
+      }
+
+      // Try user preferences if available
+      if (userId) {
+        try {
+          const response = await fetch(`/api/user/preferences?userId=${userId}&includeCoords=true`);
+          const data = await response.json();
+          
+          if (!response.ok) {
+            throw new Error(data.error || 'Failed to fetch location');
+          }
+          
+          if (data.coordinates) {
+            setUserLocation([data.coordinates.latitude, data.coordinates.longitude]);
+            setError('Using your saved location. Allow location access to see your current position.');
             setIsLoading(false);
             return;
           }
         } catch (error) {
-          let errorMessage = 'Could not access your location. ';
-          if (error instanceof GeolocationPositionError) {
-            switch (error.code) {
-              case error.PERMISSION_DENIED:
-                errorMessage += 'Please allow location access in your browser settings.';
-                break;
-              case error.POSITION_UNAVAILABLE:
-                errorMessage += 'Location information is unavailable.';
-                break;
-              case error.TIMEOUT:
-                errorMessage += 'Location request timed out.';
-                break;
-              default:
-                errorMessage += 'An unknown error occurred.';
-            }
-          }
-          console.error('Geolocation error:', error);
-          setError(errorMessage);
-          
-          // Try to fall back to user preferences
-          if (userId) {
-            try {
-              const response = await fetch(`/api/user/preferences?userId=${userId}&includeCoords=true`);
-              const data = await response.json();
-              
-              if (!response.ok) {
-                throw new Error(data.error || 'Failed to fetch location');
-              }
-              
-              if (data.coordinates) {
-                setUserLocation([data.coordinates.latitude, data.coordinates.longitude]);
-                setError(errorMessage + ' Using your saved location instead.');
-                setIsLoading(false);
-                return;
-              }
-            } catch (prefError) {
-              console.error('Error fetching user preferences:', prefError);
-            }
-          }
+          console.error('Error fetching user preferences:', error);
         }
-      } else {
-        setError('Your browser does not support geolocation. Please use a modern browser or set a default location.');
       }
 
-      // If all else fails, use default NYC location
-      setError((prev) => (prev ? `${prev} Using default location.` : 'Could not determine your location. Using default location.'));
-      setIsLoading(false);
+      // Use default zip code location
+      try {
+        const defaultLocation = await getDefaultLocation();
+        setUserLocation(defaultLocation);
+        setError('Could not determine your location. Using default location (61273).');
+      } catch (error) {
+        console.error('Error setting default location:', error);
+      } finally {
+        setIsLoading(false);
+      }
     }
 
     initializeLocation();
