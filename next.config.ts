@@ -2,7 +2,10 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   experimental: {
-    serverActions: true,
+    serverActions: {
+      bodySizeLimit: "1mb", // Example value
+      allowedOrigins: ["*"], // Example value
+    },
   },
   transpilePackages: ['react-leaflet', '@react-leaflet/core'],
   webpack: (config, { isServer }) => {

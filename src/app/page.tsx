@@ -1,13 +1,25 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 // Import map component dynamically to avoid SSR issues
 const Map = dynamic(() => import('@/components/Map'), {
   ssr: false,
   loading: () => <div>Loading map...</div>
 });
+
+// Debounce function
+function debounce<T extends (...args: any[]) => any>(
+  func: T,
+  wait: number
+): (...args: Parameters<T>) => void {
+  let timeout: NodeJS.Timeout;
+  return (...args: Parameters<T>) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), wait);
+  };
+}
 
 export default function Home() {
   const [view, setView] = useState<'map' | 'list'>('map');
@@ -16,6 +28,46 @@ export default function Home() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [userId] = useState('test-user'); // TODO: Replace with actual user ID from auth
+  const [mapKey, setMapKey] = useState(0); // Used to force map re-render
+  const [isValidating, setIsValidating] = useState(false);
+
+  // Validate ZIP code with OpenStreetMap API
+  const validateZipCode = useCallback(async (zip: string) => {
+    if (!zip.match(/^\d{5}(-\d{4})?$/)) {
+      setError('Please enter a valid 5-digit ZIP code');
+      return;
+    }
+
+    setIsValidating(true);
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${zip}&countrycodes=us`,
+        {
+          headers: {
+            'User-Agent': 'CardsOnTheGo/1.0',
+            'Accept-Language': 'en-US'
+          }
+        }
+      );
+      
+      const data = await response.json();
+      if (!data || data.length === 0) {
+        setError('Invalid ZIP code');
+      } else {
+        setError('');
+      }
+    } catch (error) {
+      console.error('Error validating ZIP code:', error);
+    } finally {
+      setIsValidating(false);
+    }
+  }, []);
+
+  // Debounced version of validateZipCode
+  const debouncedValidateZipCode = useCallback(
+    debounce((zip: string) => validateZipCode(zip), 500),
+    [validateZipCode]
+  );
 
   useEffect(() => {
     // Fetch current ZIP code when dialog opens
@@ -30,8 +82,21 @@ export default function Home() {
         .catch(error => {
           console.error('Error fetching current ZIP code:', error);
         });
+    } else {
+      // Clear form state when dialog closes
+      setZipCode('');
+      setError('');
     }
   }, [showZipDialog, userId]);
+
+  // Validate ZIP code as user types
+  useEffect(() => {
+    if (zipCode) {
+      debouncedValidateZipCode(zipCode);
+    } else {
+      setError('');
+    }
+  }, [zipCode, debouncedValidateZipCode]);
 
   const handleZipSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,8 +122,8 @@ export default function Home() {
       }
 
       setShowZipDialog(false);
-      // Refresh map to use new location
-      window.location.reload();
+      // Force map to re-render with new location
+      setMapKey(prev => prev + 1);
     } catch (error) {
       console.error('Error updating zip code:', error);
       setError(error instanceof Error ? error.message : 'Failed to update zip code');
@@ -99,8 +164,8 @@ export default function Home() {
         </div>
 
         {view === 'map' ? (
-          <div className="h-[600px] rounded-lg overflow-hidden">
-            <Map />
+          <div className="h-[calc(100vh-8rem)]">
+            <Map key={mapKey} userId={userId} />
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -176,3 +241,12 @@ export default function Home() {
                       'Save'
                     )}
                   </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+      </div>
+    </main>
+  );
+}
