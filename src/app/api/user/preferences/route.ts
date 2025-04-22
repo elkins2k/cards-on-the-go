@@ -3,11 +3,20 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
+// Rate limiting for OpenStreetMap API
+const RATE_LIMIT_WINDOW = 1000; // 1 second minimum between requests
+let lastRequestTime = 0;
+
 async function getCoordinatesFromZipCode(zipCode: string) {
   try {
-    // Add delay to respect rate limits
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
+    // Ensure minimum delay between requests
+    const now = Date.now();
+    const timeSinceLastRequest = now - lastRequestTime;
+    if (timeSinceLastRequest < RATE_LIMIT_WINDOW) {
+      await new Promise(resolve => setTimeout(resolve, RATE_LIMIT_WINDOW - timeSinceLastRequest));
+    }
+    lastRequestTime = Date.now();
+
     const response = await fetch(
       `https://nominatim.openstreetmap.org/search?format=json&q=${zipCode}&countrycodes=us`,
       {
@@ -17,6 +26,10 @@ async function getCoordinatesFromZipCode(zipCode: string) {
         }
       }
     );
+    
+    if (response.status === 429) {
+      throw new Error('Rate limit exceeded. Please try again in a few seconds.');
+    }
     
     if (!response.ok) {
       throw new Error(`Geocoding failed with status: ${response.status}`);
@@ -33,7 +46,7 @@ async function getCoordinatesFromZipCode(zipCode: string) {
     return null;
   } catch (error) {
     console.error('Error geocoding zip code:', error);
-    return null;
+    throw error;
   }
 }
 
