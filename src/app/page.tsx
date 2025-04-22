@@ -10,7 +10,7 @@ const Map = dynamic(() => import('@/components/Map'), {
 });
 
 // Debounce function
-function debounce<T extends (...args: any[]) => any>(
+function debounce<T extends (...args: string[]) => unknown>(
   func: T,
   wait: number
 ): (...args: Parameters<T>) => void {
@@ -29,7 +29,6 @@ export default function Home() {
   const [error, setError] = useState('');
   const [userId] = useState('test-user'); // TODO: Replace with actual user ID from auth
   const [mapKey, setMapKey] = useState(0); // Used to force map re-render
-  const [isValidating, setIsValidating] = useState(false);
 
   // Validate ZIP code with OpenStreetMap API
   const validateZipCode = useCallback(async (zip: string) => {
@@ -38,7 +37,6 @@ export default function Home() {
       return;
     }
 
-    setIsValidating(true);
     try {
       const response = await fetch(
         `https://nominatim.openstreetmap.org/search?format=json&q=${zip}&countrycodes=us`,
@@ -58,14 +56,17 @@ export default function Home() {
       }
     } catch (error) {
       console.error('Error validating ZIP code:', error);
-    } finally {
-      setIsValidating(false);
     }
   }, []);
 
   // Debounced version of validateZipCode
   const debouncedValidateZipCode = useCallback(
-    debounce((zip: string) => validateZipCode(zip), 500),
+    (zip: string) => {
+      const debouncedFn = debounce((z: string) => {
+        void validateZipCode(z);
+      }, 500);
+      debouncedFn(zip);
+    },
     [validateZipCode]
   );
 
