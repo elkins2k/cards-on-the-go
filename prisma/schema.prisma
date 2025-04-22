@@ -18,6 +18,7 @@ model User {
   id            String     @id @default(cuid())
   email         String     @unique
   name          String?
+  defaultZipCode String?
   businesses    Business[] @relation("BusinessOwner")
   events        Event[]    @relation("EventCreator")
   eventJoined   Event[]    @relation("EventParticipants")
