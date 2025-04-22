@@ -127,7 +127,7 @@ export default function Map({ userId }: { userId?: string }) {
 
   if (isLoading) {
     return (
-      <div className="h-full w-full flex items-center justify-center bg-gray-100">
+      <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading map...</p>
@@ -137,9 +137,9 @@ export default function Map({ userId }: { userId?: string }) {
   }
 
   return (
-    <div className="relative h-full w-full" style={{ minHeight: '400px' }}>
+    <div className="absolute inset-0">
       {error && (
-        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-[1000] bg-white px-4 py-2 rounded-lg shadow-lg border border-red-200">
+        <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-[1000] bg-white px-4 py-2 rounded-lg shadow-lg border border-red-200">
           <p className="text-red-600 text-sm">{error}</p>
         </div>
       )}
@@ -147,7 +147,7 @@ export default function Map({ userId }: { userId?: string }) {
         <MapContainer
           center={userLocation}
           zoom={13}
-          style={{ height: '100%', width: '100%', position: 'absolute', top: 0, left: 0 }}
+          className="h-full w-full"
           scrollWheelZoom={true}
         >
           <TileLayer

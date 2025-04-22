@@ -134,120 +134,126 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen p-4">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-6 flex justify-between items-center">
-          <h1 className="text-3xl font-bold">Cards on the Go</h1>
-          <div className="flex gap-2 items-center">
-            <button
-              onClick={() => setShowZipDialog(true)}
-              className="px-4 py-2 rounded bg-gray-200 hover:bg-gray-300 flex items-center gap-2"
-              title="Set Default Location"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
-              </svg>
-              Location
-            </button>
-            <button
-              onClick={() => setView('map')}
-              className={`px-4 py-2 rounded ${view === 'map' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}
-            >
-              Map View
-            </button>
-            <button
-              onClick={() => setView('list')}
-              className={`px-4 py-2 rounded ${view === 'list' ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}
-            >
-              List View
-            </button>
-          </div>
+    <main className="min-h-screen relative">
+      {view === 'map' ? (
+        <div className="absolute inset-0">
+          <Map key={mapKey} userId={userId} />
         </div>
-
-        {view === 'map' ? (
-          <div className="h-[calc(100vh-8rem)]">
-            <Map key={mapKey} userId={userId} />
-          </div>
-        ) : (
+      ) : (
+        <div className="p-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* Event and business cards will go here */}
             <p className="col-span-full text-center text-gray-500">Loading events and businesses...</p>
           </div>
-        )}
+        </div>
+      )}
 
-        {showZipDialog && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[1000]">
-            <div className="bg-white rounded-lg p-6 max-w-sm w-full z-[1001]">
-              <div className="flex justify-between items-start mb-4">
-                <h2 className="text-xl font-bold">Set Default Location</h2>
-                <button
-                  onClick={() => setShowZipDialog(false)}
-                  className="text-gray-400 hover:text-gray-600"
-                  aria-label="Close"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              <form onSubmit={handleZipSubmit}>
-                <div className="mb-4">
-                  <label htmlFor="zipCode" className="block text-sm font-medium text-gray-700 mb-1">
-                    ZIP Code
-                  </label>
-                  <input
-                    type="text"
-                    id="zipCode"
-                    value={zipCode}
-                    onChange={(e) => {
-                      setError('');
-                      setZipCode(e.target.value);
-                    }}
-                    placeholder="Enter ZIP code"
-                    pattern="^\d{5}(-\d{4})?$"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    required
-                    disabled={isSubmitting}
-                  />
-                  <p className="mt-1 text-sm text-gray-500">
-                    Enter a 5-digit ZIP code to set your default map location
-                  </p>
-                  {error && (
-                    <p className="mt-2 text-sm text-red-600">{error}</p>
-                  )}
-                </div>
-                <div className="flex justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowZipDialog(false)}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 disabled:opacity-50"
-                    disabled={isSubmitting}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
-                    disabled={isSubmitting}
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                        </svg>
-                        Saving...
-                      </>
-                    ) : (
-                      'Save'
-                    )}
-                  </button>
-                </div>
-              </form>
+      {/* Header overlay */}
+      <div className="absolute top-0 left-0 right-0 z-10 bg-white/80 backdrop-blur-sm">
+        <div className="max-w-7xl mx-auto p-4">
+          <div className="flex justify-between items-center">
+            <h1 className="text-3xl font-bold">Cards on the Go</h1>
+            <div className="flex gap-2 items-center">
+              <button
+                onClick={() => setShowZipDialog(true)}
+                className="px-4 py-2 rounded bg-white hover:bg-gray-100 flex items-center gap-2 shadow-md"
+                title="Set Default Location"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
+                </svg>
+                Location
+              </button>
+              <button
+                onClick={() => setView('map')}
+                className={`px-4 py-2 rounded ${view === 'map' ? 'bg-blue-600 text-white' : 'bg-white'} shadow-md hover:bg-opacity-90`}
+              >
+                Map View
+              </button>
+              <button
+                onClick={() => setView('list')}
+                className={`px-4 py-2 rounded ${view === 'list' ? 'bg-blue-600 text-white' : 'bg-white'} shadow-md hover:bg-opacity-90`}
+              >
+                List View
+              </button>
             </div>
           </div>
-        )}
+        </div>
       </div>
+
+      {/* Modal */}
+      {showZipDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[1000]">
+          <div className="bg-white rounded-lg p-6 max-w-sm w-full z-[1001]">
+            <div className="flex justify-between items-start mb-4">
+              <h2 className="text-xl font-bold">Set Default Location</h2>
+              <button
+                onClick={() => setShowZipDialog(false)}
+                className="text-gray-400 hover:text-gray-600"
+                aria-label="Close"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <form onSubmit={handleZipSubmit}>
+              <div className="mb-4">
+                <label htmlFor="zipCode" className="block text-sm font-medium text-gray-700 mb-1">
+                  ZIP Code
+                </label>
+                <input
+                  type="text"
+                  id="zipCode"
+                  value={zipCode}
+                  onChange={(e) => {
+                    setError('');
+                    setZipCode(e.target.value);
+                  }}
+                  placeholder="Enter ZIP code"
+                  pattern="^\d{5}(-\d{4})?$"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  required
+                  disabled={isSubmitting}
+                />
+                <p className="mt-1 text-sm text-gray-500">
+                  Enter a 5-digit ZIP code to set your default map location
+                </p>
+                {error && (
+                  <p className="mt-2 text-sm text-red-600">{error}</p>
+                )}
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowZipDialog(false)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 disabled:opacity-50"
+                  disabled={isSubmitting}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Saving...
+                    </>
+                  ) : (
+                    'Save'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

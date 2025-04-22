@@ -9,11 +9,22 @@
   --foreground: #171717;
 }
 
-/* Add required Leaflet map container styles */
+/* Map container styles */
 .leaflet-container {
   width: 100%;
   height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
   z-index: 1;
+}
+
+/* Ensure fullscreen layout */
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
 }
 
 /* Modal should appear above map */
