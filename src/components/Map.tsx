@@ -6,16 +6,14 @@ import { useEffect, useState } from 'react';
 import L from 'leaflet';
 
 // Fix Leaflet default marker icons
-const defaultIcon = L.icon({
-  iconUrl: '/marker-icon.png',
-  iconRetinaUrl: '/marker-icon-2x.png',
-  shadowUrl: '/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41]
-});
-L.Marker.prototype.options.icon = defaultIcon;
+useEffect(() => {
+  delete (L.Icon.Default.prototype as any)._getIconUrl;
+  L.Icon.Default.mergeOptions({
+    iconUrl: 'marker-icon.png',
+    iconRetinaUrl: 'marker-icon-2x.png',
+    shadowUrl: 'marker-shadow.png',
+  });
+}, []);
 
 export default function Map({ userId }: { userId?: string }) {
   const DEFAULT_ZIP = '61273';
