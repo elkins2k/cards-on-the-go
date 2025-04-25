@@ -6,7 +6,7 @@ export default withAuth({
       const path = req.nextUrl.pathname;
       
       // Public paths that don't require authentication
-      if (path === "/" || path.startsWith("/auth")) {
+      if (path === "/" || path.startsWith("/auth") || path.startsWith("/api/auth")) {
         return true;
       }
       
