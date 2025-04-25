@@ -39,89 +39,95 @@ export default function Map({ userId }: { userId?: string }) {
           shadowUrl: '/marker-shadow.png',
         });
         setMapReady(true);
+      }).catch(() => {
+        setError('Failed to load map resources');
       });
     }
   }, []);
 
-  useEffect(() => {
-    async function getDefaultLocation() {
-      try {
-        const response = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&q=${DEFAULT_ZIP}&countrycodes=us`,
-          {
-            headers: {
-              'User-Agent': 'CardsOnTheGo/1.0',
-              'Accept-Language': 'en-US'
-            }
+  const getDefaultLocation = async (): Promise<[number, number]> => {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${DEFAULT_ZIP}&countrycodes=us`,
+        {
+          headers: {
+            'User-Agent': 'CardsOnTheGo/1.0',
+            'Accept-Language': 'en-US'
           }
-        );
-        const data = await response.json();
-        if (data?.[0]) {
-          return [parseFloat(data[0].lat), parseFloat(data[0].lon)] as [number, number];
         }
-        throw new Error('Could not get coordinates for default zip code');
-      } catch (error) {
-        console.error('Error getting default location:', error);
-        return [40.7128, -74.0060] as [number, number]; // Fallback if geocoding fails
+      );
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch default location');
+      }
+
+      const data = await response.json();
+      if (data?.[0]) {
+        return [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+      }
+      throw new Error('Could not get coordinates for default zip code');
+    } catch (error) {
+      // Return fallback coordinates instead of logging error
+      return [40.7128, -74.0060]; // NYC coordinates as fallback
+    }
+  };
+
+  const initializeLocation = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    // Try browser geolocation first
+    if (navigator.geolocation) {
+      try {
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
+          });
+        });
+        
+        setUserLocation([position.coords.latitude, position.coords.longitude]);
+        setIsLoading(false);
+        return;
+      } catch (geoError) {
+        // Don't log error, just set user-friendly message
+        setError('Location access denied. Using alternative location.');
       }
     }
 
-    async function initializeLocation() {
-      setIsLoading(true);
-      setError(null);
-
-      // Try browser geolocation first
-      if (navigator.geolocation) {
-        try {
-          const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(resolve, reject, {
-              enableHighAccuracy: true,
-              timeout: 10000,
-              maximumAge: 0
-            });
-          });
-          
-          setUserLocation([position.coords.latitude, position.coords.longitude]);
+    // Try user preferences if available
+    if (userId) {
+      try {
+        const response = await fetch(`/api/user/preferences?userId=${userId}&includeCoords=true`);
+        const data = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to fetch location');
+        }
+        
+        if (data.coordinates) {
+          setUserLocation([data.coordinates.latitude, data.coordinates.longitude]);
+          setError('Using your saved location. Allow location access to see your current position.');
           setIsLoading(false);
           return;
-        } catch (error) {
-          console.error('Error getting browser location:', error);
         }
-      }
-
-      // Try user preferences if available
-      if (userId) {
-        try {
-          const response = await fetch(`/api/user/preferences?userId=${userId}&includeCoords=true`);
-          const data = await response.json();
-          
-          if (!response.ok) {
-            throw new Error(data.error || 'Failed to fetch location');
-          }
-          
-          if (data.coordinates) {
-            setUserLocation([data.coordinates.latitude, data.coordinates.longitude]);
-            setError('Using your saved location. Allow location access to see your current position.');
-            setIsLoading(false);
-            return;
-          }
-        } catch (error) {
-          console.error('Error fetching user preferences:', error);
-        }
-      }
-
-      // Use default zip code location
-      try {
-        const defaultLocation = await getDefaultLocation();
-        setUserLocation(defaultLocation);
-        setError('Could not determine your location. Using default location (61273).');
-      } catch (error) {
-        console.error('Error setting default location:', error);
-      } finally {
-        setIsLoading(false);
+      } catch (prefError) {
+        // Don't log error, set appropriate message
+        setError('Could not load saved location. Using default location.');
       }
     }
 
+    // Use default zip code location
+    const defaultLocation = await getDefaultLocation();
+    setUserLocation(defaultLocation);
+    if (!error) {
+      setError('Using default location (61273).');
+    }
+    setIsLoading(false);
+  };
+
+  useEffect(() => {
     initializeLocation();
   }, [userId]);
 
