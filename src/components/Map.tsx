@@ -27,7 +27,7 @@ export default function Map({ userId }: { userId?: string }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [mapReady, setMapReady] = useState(false);
-  const mapKey = useRef(Date.now()).current;
+  const [mapKey, setMapKey] = useState(Date.now());
 
   // Initialize Leaflet
   useEffect(() => {
@@ -129,10 +129,12 @@ export default function Map({ userId }: { userId?: string }) {
   };
 
   useEffect(() => {
-    initializeLocation();
+    initializeLocation().then(() => {
+      setMapKey(Date.now()); // Force map re-render when location is updated
+    });
   }, [userId]);
 
-  if (isLoading) {
+  if (isLoading || !mapReady) {
     return (
       <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
         <div className="text-center">
@@ -150,23 +152,21 @@ export default function Map({ userId }: { userId?: string }) {
           <p className="text-red-600 text-sm">{error}</p>
         </div>
       )}
-      {mapReady && (
-        <MapContainer
-          key={mapKey}
-          center={userLocation}
-          zoom={13}
-          className="h-full w-full"
-          scrollWheelZoom={true}
-        >
-          <TileLayer
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          />
-          <Marker position={userLocation}>
-            <Popup>You are here</Popup>
-          </Marker>
-        </MapContainer>
-      )}
+      <MapContainer
+        key={mapKey}
+        center={userLocation}
+        zoom={13}
+        className="h-full w-full"
+        scrollWheelZoom={true}
+      >
+        <TileLayer
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        />
+        <Marker position={userLocation}>
+          <Popup>You are here</Popup>
+        </Marker>
+      </MapContainer>
     </div>
   );
 }
