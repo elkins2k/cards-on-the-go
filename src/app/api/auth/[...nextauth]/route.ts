@@ -10,6 +10,9 @@ export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   secret: process.env.NEXTAUTH_SECRET,
   debug: process.env.NODE_ENV === 'development',
+  session: {
+    strategy: 'jwt'
+  },
   providers: [
     EmailProvider({
       server: {
@@ -32,9 +35,9 @@ export const authOptions: NextAuthOptions = {
     error: '/auth/error',
   },
   callbacks: {
-    session: async ({ session, user }) => {
+    session: async ({ session, token }) => {
       if (session?.user) {
-        session.user.id = user.id;
+        session.user.id = token.sub as string;
       }
       return session;
     },
@@ -42,5 +45,4 @@ export const authOptions: NextAuthOptions = {
 };
 
 const handler = NextAuth(authOptions);
-
-export { handler as GET, handler as POST }
+export { handler as GET, handler as POST };
