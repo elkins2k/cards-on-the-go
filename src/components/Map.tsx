@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 
 // Dynamic imports for react-leaflet components
 const MapContainer = dynamic(
@@ -27,6 +27,7 @@ export default function Map({ userId }: { userId?: string }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [mapReady, setMapReady] = useState(false);
+  const mapKey = useRef(Date.now()).current;
 
   // Initialize Leaflet
   useEffect(() => {
@@ -151,6 +152,7 @@ export default function Map({ userId }: { userId?: string }) {
       )}
       {mapReady && (
         <MapContainer
+          key={mapKey}
           center={userLocation}
           zoom={13}
           className="h-full w-full"
