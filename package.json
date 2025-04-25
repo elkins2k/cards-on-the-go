@@ -9,12 +9,13 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@auth/nextjs": "^0.0.0-380f8d56",
-    "@prisma/client": "^5.10.2",
+    "@auth/prisma-adapter": "^2.9.0",
+    "@prisma/client": "^5.22.0",
     "@react-leaflet/core": "^2.1.0",
     "axios": "^1.6.7",
     "leaflet": "^1.9.4",
     "next": "^13.5.11",
+    "next-auth": "^4.24.11",
     "prisma": "^5.10.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
