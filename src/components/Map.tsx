@@ -27,11 +27,12 @@ export default function Map({ userId }: { userId?: string }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [mapReady, setMapReady] = useState(false);
-  const [mapKey, setMapKey] = useState(Date.now());
+  const mapInitialized = useRef(false);
 
   // Initialize Leaflet
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && !mapInitialized.current) {
+      mapInitialized.current = true;
       import('leaflet').then((L) => {
         delete (L.Icon.Default.prototype as any)._getIconUrl;
         L.Icon.Default.mergeOptions({
@@ -129,9 +130,7 @@ export default function Map({ userId }: { userId?: string }) {
   };
 
   useEffect(() => {
-    initializeLocation().then(() => {
-      setMapKey(Date.now()); // Force map re-render when location is updated
-    });
+    initializeLocation();
   }, [userId]);
 
   if (isLoading || !mapReady) {
@@ -153,7 +152,6 @@ export default function Map({ userId }: { userId?: string }) {
         </div>
       )}
       <MapContainer
-        key={mapKey}
         center={userLocation}
         zoom={13}
         className="h-full w-full"
