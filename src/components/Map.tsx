@@ -1,62 +1,26 @@
 'use client';
 
-import dynamic from 'next/dynamic';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
+import { GoogleMap, LoadScript, Marker } from '@react-google-maps/api';
 
-// Dynamic imports for react-leaflet components
-const MapContainer = dynamic(
-  () => import('react-leaflet').then((mod) => mod.MapContainer),
-  { ssr: false }
-);
-const TileLayer = dynamic(
-  () => import('react-leaflet').then((mod) => mod.TileLayer),
-  { ssr: false }
-);
-const Marker = dynamic(
-  () => import('react-leaflet').then((mod) => mod.Marker),
-  { ssr: false }
-);
-const Popup = dynamic(
-  () => import('react-leaflet').then((mod) => mod.Popup),
-  { ssr: false }
-);
+const containerStyle = {
+  width: '100%',
+  height: '100%'
+};
 
 export default function Map({ userId }: { userId?: string }) {
   const DEFAULT_ZIP = '61273';
-  const [userLocation, setUserLocation] = useState<[number, number]>([40.7128, -74.0060]);
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number }>({
+    lat: 40.7128,
+    lng: -74.0060
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [mapReady, setMapReady] = useState(false);
-  const mapInitialized = useRef(false);
 
-  // Initialize Leaflet
-  useEffect(() => {
-    if (typeof window !== 'undefined' && !mapInitialized.current) {
-      mapInitialized.current = true;
-      import('leaflet').then((L) => {
-        delete (L.Icon.Default.prototype as any)._getIconUrl;
-        L.Icon.Default.mergeOptions({
-          iconUrl: '/marker-icon.png',
-          iconRetinaUrl: '/marker-icon-2x.png',
-          shadowUrl: '/marker-shadow.png',
-        });
-        setMapReady(true);
-      }).catch(() => {
-        setError('Failed to load map resources');
-      });
-    }
-  }, []);
-
-  const getDefaultLocation = async (): Promise<[number, number]> => {
+  const getDefaultLocation = async (): Promise<{ lat: number; lng: number }> => {
     try {
       const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${DEFAULT_ZIP}&countrycodes=us`,
-        {
-          headers: {
-            'User-Agent': 'CardsOnTheGo/1.0',
-            'Accept-Language': 'en-US'
-          }
-        }
+        `https://maps.googleapis.com/maps/api/geocode/json?address=${DEFAULT_ZIP}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`,
       );
       
       if (!response.ok) {
@@ -64,13 +28,12 @@ export default function Map({ userId }: { userId?: string }) {
       }
 
       const data = await response.json();
-      if (data?.[0]) {
-        return [parseFloat(data[0].lat), parseFloat(data[0].lon)];
+      if (data.results?.[0]?.geometry?.location) {
+        return data.results[0].geometry.location;
       }
       throw new Error('Could not get coordinates for default zip code');
     } catch (error) {
-      // Return fallback coordinates instead of logging error
-      return [40.7128, -74.0060]; // NYC coordinates as fallback
+      return { lat: 40.7128, lng: -74.0060 }; // NYC coordinates as fallback
     }
   };
 
@@ -78,7 +41,6 @@ export default function Map({ userId }: { userId?: string }) {
     setIsLoading(true);
     setError(null);
 
-    // Try browser geolocation first
     if (navigator.geolocation) {
       try {
         const position = await new Promise<GeolocationPosition>((resolve, reject) => {
@@ -89,16 +51,17 @@ export default function Map({ userId }: { userId?: string }) {
           });
         });
         
-        setUserLocation([position.coords.latitude, position.coords.longitude]);
+        setUserLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude
+        });
         setIsLoading(false);
         return;
       } catch (geoError) {
-        // Don't log error, just set user-friendly message
         setError('Location access denied. Using alternative location.');
       }
     }
 
-    // Try user preferences if available
     if (userId) {
       try {
         const response = await fetch(`/api/user/preferences?userId=${userId}&includeCoords=true`);
@@ -109,18 +72,19 @@ export default function Map({ userId }: { userId?: string }) {
         }
         
         if (data.coordinates) {
-          setUserLocation([data.coordinates.latitude, data.coordinates.longitude]);
+          setUserLocation({
+            lat: data.coordinates.latitude,
+            lng: data.coordinates.longitude
+          });
           setError('Using your saved location. Allow location access to see your current position.');
           setIsLoading(false);
           return;
         }
       } catch (prefError) {
-        // Don't log error, set appropriate message
         setError('Could not load saved location. Using default location.');
       }
     }
 
-    // Use default zip code location
     const defaultLocation = await getDefaultLocation();
     setUserLocation(defaultLocation);
     if (!error) {
@@ -133,12 +97,22 @@ export default function Map({ userId }: { userId?: string }) {
     initializeLocation();
   }, [userId]);
 
-  if (isLoading || !mapReady) {
+  if (isLoading) {
     return (
       <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading map...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY) {
+    return (
+      <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+        <div className="text-center">
+          <p className="text-red-600">Google Maps API key is not configured</p>
         </div>
       </div>
     );
@@ -151,20 +125,15 @@ export default function Map({ userId }: { userId?: string }) {
           <p className="text-red-600 text-sm">{error}</p>
         </div>
       )}
-      <MapContainer
-        center={userLocation}
-        zoom={13}
-        className="h-full w-full"
-        scrollWheelZoom={true}
-      >
-        <TileLayer
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        />
-        <Marker position={userLocation}>
-          <Popup>You are here</Popup>
-        </Marker>
-      </MapContainer>
+      <LoadScript googleMapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}>
+        <GoogleMap
+          mapContainerStyle={containerStyle}
+          center={userLocation}
+          zoom={13}
+        >
+          <Marker position={userLocation} />
+        </GoogleMap>
+      </LoadScript>
     </div>
   );
 }
