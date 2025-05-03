@@ -11,8 +11,8 @@ const containerStyle = {
 export default function Map({ userId }: { userId?: string }) {
   const DEFAULT_ZIP = '61273';
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number }>({
-    lat: 40.7128,
-    lng: -74.0060
+    lat: 40.4230, // Default coordinates for 61273 (Illinois)
+    lng: -90.7147
   });
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +33,7 @@ export default function Map({ userId }: { userId?: string }) {
       }
       throw new Error('Could not get coordinates for default zip code');
     } catch (error) {
-      return { lat: 40.7128, lng: -74.0060 }; // NYC coordinates as fallback
+      return { lat: 40.4230, lng: -90.7147 }; // 61273 coordinates as fallback
     }
   };
 
@@ -41,27 +41,7 @@ export default function Map({ userId }: { userId?: string }) {
     setIsLoading(true);
     setError(null);
 
-    if (navigator.geolocation) {
-      try {
-        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject, {
-            enableHighAccuracy: true,
-            timeout: 10000,
-            maximumAge: 0
-          });
-        });
-        
-        setUserLocation({
-          lat: position.coords.latitude,
-          lng: position.coords.longitude
-        });
-        setIsLoading(false);
-        return;
-      } catch (geoError) {
-        setError('Location access denied. Using alternative location.');
-      }
-    }
-
+    // First try to get location from user preferences if userId exists
     if (userId) {
       try {
         const response = await fetch(`/api/user/preferences?userId=${userId}&includeCoords=true`);
@@ -76,21 +56,36 @@ export default function Map({ userId }: { userId?: string }) {
             lat: data.coordinates.latitude,
             lng: data.coordinates.longitude
           });
-          setError('Using your saved location. Allow location access to see your current position.');
           setIsLoading(false);
           return;
         }
       } catch (prefError) {
-        setError('Could not load saved location. Using default location.');
+        console.error('Could not load saved location:', prefError);
       }
     }
 
+    // Then use default location (61273)
     const defaultLocation = await getDefaultLocation();
     setUserLocation(defaultLocation);
-    if (!error) {
-      setError('Using default location (61273).');
-    }
+    setError('Using default location (61273). Enable location access to see your current position.');
     setIsLoading(false);
+
+    // Finally try to get user's geolocation in the background
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          });
+          setError(null);
+        },
+        (geoError) => {
+          // Keep using default location if geolocation fails
+          console.error('Geolocation error:', geoError);
+        }
+      );
+    }
   };
 
   useEffect(() => {
