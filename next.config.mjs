@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   transpilePackages: ['react-leaflet', '@react-leaflet/core'],
+  output: 'standalone',
   webpack: (config, { isServer }) => {
     if (!isServer) {
       // Don't attempt to load node-specific modules on the client-side
