@@ -1,7 +1,8 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
+import { useSession } from 'next-auth/react';
 
 // Import map component dynamically to avoid SSR issues
 const Map = dynamic(() => import('@/components/Map'), {
@@ -9,101 +10,25 @@ const Map = dynamic(() => import('@/components/Map'), {
   loading: () => <div>Loading map...</div>
 });
 
-// Debounce function
-function debounce<T extends (...args: string[]) => unknown>(
-  func: T,
-  wait: number
-): (...args: Parameters<T>) => void {
-  let timeout: NodeJS.Timeout;
-  return (...args: Parameters<T>) => {
-    clearTimeout(timeout);
-    timeout = setTimeout(() => func(...args), wait);
-  };
-}
-
 export default function Home() {
+  const { data: session } = useSession();
   const [view, setView] = useState<'map' | 'list'>('map');
   const [showZipDialog, setShowZipDialog] = useState(false);
   const [zipCode, setZipCode] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [userId] = useState('test-user'); // TODO: Replace with actual user ID from auth
-  const [mapKey, setMapKey] = useState(0); // Used to force map re-render
+  const [mapKey, setMapKey] = useState(0);
 
-  // Validate ZIP code with OpenStreetMap API
-  const validateZipCode = useCallback(async (zip: string) => {
-    if (!zip.match(/^\d{5}(-\d{4})?$/)) {
-      setError('Please enter a valid 5-digit ZIP code');
+  const handleSubmitZipCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!session?.user?.id) {
+      setError('Please sign in to set your location');
       return;
     }
 
-    try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${zip}&countrycodes=us`,
-        {
-          headers: {
-            'User-Agent': 'CardsOnTheGo/1.0',
-            'Accept-Language': 'en-US'
-          }
-        }
-      );
-      
-      const data = await response.json();
-      if (!data || data.length === 0) {
-        setError('Invalid ZIP code');
-      } else {
-        setError('');
-      }
-    } catch (error) {
-      console.error('Error validating ZIP code:', error);
-    }
-  }, []);
-
-  // Debounced version of validateZipCode
-  const debouncedValidateZipCode = useCallback(
-    (zip: string) => {
-      const debouncedFn = debounce((z: string) => {
-        void validateZipCode(z);
-      }, 500);
-      debouncedFn(zip);
-    },
-    [validateZipCode]
-  );
-
-  useEffect(() => {
-    // Fetch current ZIP code when dialog opens
-    if (showZipDialog) {
-      fetch(`/api/user/preferences?userId=${userId}`)
-        .then(response => response.json())
-        .then(data => {
-          if (data.user?.defaultZipCode) {
-            setZipCode(data.user.defaultZipCode);
-          }
-        })
-        .catch(error => {
-          console.error('Error fetching current ZIP code:', error);
-        });
-    } else {
-      // Clear form state when dialog closes
-      setZipCode('');
-      setError('');
-    }
-  }, [showZipDialog, userId]);
-
-  // Validate ZIP code as user types
-  useEffect(() => {
-    if (zipCode) {
-      debouncedValidateZipCode(zipCode);
-    } else {
-      setError('');
-    }
-  }, [zipCode, debouncedValidateZipCode]);
-
-  const handleZipSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
     setIsSubmitting(true);
-    
+    setError('');
+
     try {
       const response = await fetch('/api/user/preferences', {
         method: 'PUT',
@@ -111,13 +36,13 @@ export default function Home() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          userId,
-          zipCode,
-        }),
+          userId: session.user.id,
+          zipCode
+        })
       });
 
       const data = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(data.error || 'Failed to update zip code');
       }
@@ -137,7 +62,7 @@ export default function Home() {
     <main className="min-h-screen relative">
       {view === 'map' ? (
         <div className="absolute inset-0">
-          <Map key={mapKey} userId={userId} />
+          <Map key={mapKey} />
         </div>
       ) : (
         <div className="p-4">
@@ -197,7 +122,7 @@ export default function Home() {
                 </svg>
               </button>
             </div>
-            <form onSubmit={handleZipSubmit}>
+            <form onSubmit={handleSubmitZipCode}>
               <div className="mb-4">
                 <label htmlFor="zipCode" className="block text-sm font-medium text-gray-700 mb-1">
                   ZIP Code

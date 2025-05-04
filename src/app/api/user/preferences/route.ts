@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
 const prisma = new PrismaClient();
 const DEFAULT_ZIP = '61273';
@@ -79,9 +81,31 @@ async function getCoordinatesFromZipCode(zipCode: string) {
 
 export async function GET(request: Request) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        {
+          status: 401,
+          headers: getCorsHeaders(),
+        }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
     const includeCoords = searchParams.get('includeCoords') === 'true';
+
+    // Ensure the user can only access their own preferences
+    if (userId !== session.user.id) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        {
+          status: 403,
+          headers: getCorsHeaders(),
+        }
+      );
+    }
 
     if (!userId) {
       return NextResponse.json(
@@ -143,8 +167,30 @@ export async function GET(request: Request) {
 
 export async function PUT(request: Request) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        {
+          status: 401,
+          headers: getCorsHeaders(),
+        }
+      );
+    }
+
     const { userId, zipCode } = await request.json();
     
+    // Ensure the user can only update their own preferences
+    if (userId !== session.user.id) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        {
+          status: 403,
+          headers: getCorsHeaders(),
+        }
+      );
+    }
+
     if (!userId || !zipCode) {
       return NextResponse.json(
         { error: 'Missing required fields' },

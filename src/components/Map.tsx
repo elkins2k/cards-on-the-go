@@ -2,13 +2,15 @@
 
 import { useEffect, useState } from 'react';
 import { GoogleMap, LoadScript, Marker } from '@react-google-maps/api';
+import { useSession } from 'next-auth/react';
 
 const containerStyle = {
   width: '100%',
   height: '100%'
 };
 
-export default function Map({ userId }: { userId?: string }) {
+export default function Map() {
+  const { data: session } = useSession();
   const DEFAULT_ZIP = '61273';
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number }>({
     lat: 40.4230, // Default coordinates for 61273 (Illinois)
@@ -41,10 +43,10 @@ export default function Map({ userId }: { userId?: string }) {
     setIsLoading(true);
     setError(null);
 
-    // First try to get location from user preferences if userId exists
-    if (userId) {
+    // Try to get location from user preferences if authenticated
+    if (session?.user?.id) {
       try {
-        const response = await fetch(`/api/user/preferences?userId=${userId}&includeCoords=true`);
+        const response = await fetch(`/api/user/preferences?userId=${session.user.id}&includeCoords=true`);
         const data = await response.json();
         
         if (!response.ok) {
@@ -64,14 +66,14 @@ export default function Map({ userId }: { userId?: string }) {
       }
     }
 
-    // Then use default location (61273)
+    // Use default location (61273)
     const defaultLocation = await getDefaultLocation();
     setUserLocation(defaultLocation);
-    setError('Using default location (61273). Enable location access to see your current position.');
+    setError(session ? 'Using default location (61273). Set your preferred location to see your area.' : 'Sign in to set your preferred location.');
     setIsLoading(false);
 
-    // Finally try to get user's geolocation in the background
-    if (navigator.geolocation) {
+    // Try to get user's geolocation in the background if they're signed in
+    if (session && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           setUserLocation({
@@ -81,7 +83,6 @@ export default function Map({ userId }: { userId?: string }) {
           setError(null);
         },
         (geoError) => {
-          // Keep using default location if geolocation fails
           console.error('Geolocation error:', geoError);
         }
       );
@@ -90,7 +91,7 @@ export default function Map({ userId }: { userId?: string }) {
 
   useEffect(() => {
     initializeLocation();
-  }, [userId]);
+  }, [session]);
 
   if (isLoading) {
     return (
