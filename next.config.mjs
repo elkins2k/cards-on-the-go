@@ -1,10 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  experimental: {
-    serverActions: {
-      allowedOrigins: ["*"]
-    },
-  },
   transpilePackages: ['react-leaflet', '@react-leaflet/core'],
   webpack: (config, { isServer }) => {
     if (!isServer) {
